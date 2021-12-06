@@ -3,9 +3,10 @@ use lazy_static::lazy_static;
 use std::error::Error;
 use teloxide::prelude::*;
 use teloxide::utils::command::BotCommand;
-const URL: &str = "https://fanyi-api.baidu.com/api/trans/vip/translate";
-const APPID: &str = "20211201001015516";
-const KEY: &str = "UiMAg7xBtMiUM1azC4e1";
+use translater::translater::youdao_api::Youdao;
+use translater::translater::Translater;
+const APPID: &str = "1758905c74df1d80";
+const APPKEY: &str = "zN317py0Xo9GuFAAh8t8IrkfTUGB5zml";
 
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
@@ -64,8 +65,10 @@ async fn answer(
             if WORDS.contains_key(&word) {
                 cx.answer("Word is already in list").send().await?;
             } else {
-                if let Ok(Some(v)) =
-                    rq_tran::rq_tran::translater::translate(&word, URL, APPID, KEY).await
+                let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
+                if let Ok(v) = translater
+                    .dictionary(word.to_string(), "en".to_string(), "zh-CHS".to_string())
+                    .await
                 {
                     WORDS.insert(word, v);
                     cx.answer("Word is added").send().await?;

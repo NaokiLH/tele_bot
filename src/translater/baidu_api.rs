@@ -2,7 +2,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::str::from_utf8;
-use tokio::runtime::Runtime;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Transword {
@@ -52,17 +51,18 @@ pub async fn translate(
 
     Ok(Some(word.to_string()))
 }
-
+// To do
+// dictionary api
 #[test]
 fn test_translate() {
-    let word = "deserialize".to_string();
+    let word = "fanbook".to_string();
     let url = "https://fanyi-api.baidu.com/api/trans/vip/translate";
     let appid = "20211201001015516";
     let key = "UiMAg7xBtMiUM1azC4e1";
 
     let word = translate(&word, url, appid, key);
 
-    let rt = Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
     handle.block_on(async {
         let word = word.await.unwrap().unwrap();
