@@ -1,5 +1,11 @@
 {
-    "tSpeakUrl": "https://openapi.youdao.com/ttsapi?q=fanbook&langType=zh-CHS&sign=2DB7F5197CD7E1BFF5DB410A0CFF8723&salt=1638781389524&voice=4&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false",
+    "returnPhrase": [
+        "fanbook"
+    ],
+    "query": "fanbook",
+    "errorCode": "0",
+    "l": "en2zh-CHS",
+    "tSpeakUrl": "https://openapi.youdao.com/ttsapi?q=%E7%B2%89%E4%B8%9D%E6%89%8B%E5%86%8C&langType=zh-CHS&sign=B8EA6C964920E863CE0C5B9A2A3A2EE4&salt=1639382974650&voice=4&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false",
     "web": [
         {
             "value": [
@@ -20,19 +26,23 @@
             "key": "Vocaloid Fanbook - Landmark"
         }
     ],
-    "requestId": "b27316c7-9bc0-4d5a-bac8-40bb65a1f77c",
-    "query": "fanbook",
+    "requestId": "253b2c1a-454b-42f2-8982-9ad33026cd3b",
     "translation": [
-        "fanbook"
+        "粉丝手册"
     ],
-    "errorCode": "0",
     "dict": {
         "url": "yddict://m.youdao.com/dict?le=eng&q=fanbook"
     },
     "webdict": {
         "url": "http://mobile.youdao.com/dict?le=eng&q=fanbook"
     },
-    "l": "en2zh-CHS",
-    "isWord": false,
-    "speakUrl": "https://openapi.youdao.com/ttsapi?q=fanbook&langType=en&sign=2DB7F5197CD7E1BFF5DB410A0CFF8723&salt=1638781389524&voice=4&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false"
+    "basic": {
+        "uk-speech": "https://openapi.youdao.com/ttsapi?q=fanbook&langType=en&sign=DD649F73F5BC2326710E735C2688DB0E&salt=1639382974649&voice=5&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false",
+        "explains": [
+            "n. 粉丝手册"
+        ],
+        "us-speech": "https://openapi.youdao.com/ttsapi?q=fanbook&langType=en&sign=DD649F73F5BC2326710E735C2688DB0E&salt=1639382974649&voice=6&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false"
+    },
+    "isWord": true,
+    "speakUrl": "https://openapi.youdao.com/ttsapi?q=fanbook&langType=en&sign=C8A6865FEEB054479A56E9FB0AD91A42&salt=1639382974650&voice=4&format=mp3&appKey=1758905c74df1d80&ttsVoiceStrict=false"
 }

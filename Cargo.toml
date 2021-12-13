@@ -20,5 +20,6 @@ serde_json = "*"
 time = "*"
 sha256 = "*"
 async-trait = "*"
+tokio-stream = "*"
 [lib]
 name = "translater"

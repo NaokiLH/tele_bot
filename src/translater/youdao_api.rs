@@ -1,7 +1,6 @@
-use super::Translater;
+use super::{Tranresult, Translater};
 use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
-use serde::{Deserialize, Serialize};
 use sha256::digest;
 use std::collections::HashMap;
 use std::error::Error;
@@ -14,29 +13,6 @@ pub struct Youdao {
     app_key: String,
     body: HashMap<String, String>,
     client: Client,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Tranresult {
-    error_code: Option<i32>,
-    query: String,
-    translation: Vec<String>,
-    basic: Basic,
-    web: Vec<Web>,
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct Basic {
-    phonetic: String,
-    explains: Vec<String>,
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct Web {
-    key: String,
-    value: Vec<String>,
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct Testtrans {
-    translation: Vec<String>,
 }
 
 impl Youdao {
@@ -52,7 +28,7 @@ impl Youdao {
     fn post(&self, url: String) -> RequestBuilder {
         self.client.post(url)
     }
-    fn compute(&mut self, text: String, from: String, to: String) {
+    fn compute(&mut self, text: &String, from: &'static str, to: &'static str) {
         let input = match text.len() {
             x if x >= 10 => format!("{}{}{}", &text[0..10], text.len(), &text[text.len() - 10..]),
             _ => text.clone(),
@@ -63,9 +39,9 @@ impl Youdao {
             "{}{}{}{}{}",
             self.app_id, input, salt, curtime, self.app_key
         );
-        self.body.insert("q".to_string(), text);
-        self.body.insert("from".to_string(), from);
-        self.body.insert("to".to_string(), to);
+        self.body.insert("q".to_string(), text.clone());
+        self.body.insert("from".to_string(), from.to_string());
+        self.body.insert("to".to_string(), to.to_string());
         self.body.insert("appKey".to_string(), self.app_id.clone());
         self.body.insert("salt".to_string(), salt);
         self.body.insert("sign".to_string(), digest(secret_key));
@@ -77,10 +53,10 @@ impl Youdao {
 impl Translater for Youdao {
     async fn translate(
         &mut self,
-        text: String,
-        from: String,
-        to: String,
-    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        text: &String,
+        from: &'static str,
+        to: &'static str,
+    ) -> Result<Tranresult, Box<dyn Error + Send + Sync>> {
         self.compute(text, from, to);
         let req = self
             .post(YOUDAO_API.to_string())
@@ -90,16 +66,15 @@ impl Translater for Youdao {
 
         let text = req.text().await?;
         let tranresult: Tranresult = serde_json::from_str(&text)?;
-        let s = format!("翻译：{:?}", tranresult.translation);
 
-        Ok(s)
+        Ok(tranresult)
     }
     async fn dictionary(
         &mut self,
-        word: String,
-        from: String,
-        to: String,
-    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        word: &String,
+        from: &'static str,
+        to: &'static str,
+    ) -> Result<Tranresult, Box<dyn Error + Send + Sync>> {
         self.compute(word, from, to);
         let req = self
             .post(YOUDAO_API.to_string())
@@ -109,12 +84,8 @@ impl Translater for Youdao {
 
         let text = req.text().await?;
         let tranresult: Tranresult = serde_json::from_str(&text)?;
-        let s = format!(
-            "翻译：{:?}\n音标：{}\n释义：{:?}\n",
-            tranresult.translation, tranresult.basic.phonetic, tranresult.basic.explains,
-        );
 
-        Ok(s)
+        Ok(tranresult)
     }
 }
 
@@ -126,13 +97,11 @@ fn test_translate() {
     );
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(youdao.dictionary(
-        "fanbook".to_string(),
-        "en".to_string(),
-        "zh-CHS".to_string(),
-    ));
+    let result = rt.block_on(youdao.dictionary(&"fanbook".to_string(), "en", "zh-CHS"));
 
     if let Ok(text) = result {
-        println!("{}", text);
+        println!("{:?}", text.pretty());
+    } else {
+        println!("dsada");
     }
 }
