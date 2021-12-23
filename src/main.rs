@@ -15,6 +15,10 @@ const APPID: &str = "1758905c74df1d80";
 const APPKEY: &str = "zN317py0Xo9GuFAAh8t8IrkfTUGB5zml";
 const TELEGRAM_TOKEN: &str = "5049537837:AAHjmZovmdP6Ni8yWdfqJ3cbcd9jTNkG4Ek";
 
+// TO DO
+// change dashmap to DB
+// add the quiz function
+
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
@@ -42,6 +46,7 @@ async fn cmd_answer(
         Some(text) => Command::parse(text, "npx")?,
         None => Command::Help,
     };
+
     match command {
         Command::Start => {
             unimplemented!()
