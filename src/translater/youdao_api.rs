@@ -51,7 +51,7 @@ impl Youdao {
 }
 #[async_trait]
 impl Translater for Youdao {
-    async fn translate(
+    async fn trans(
         &mut self,
         text: &String,
         from: &'static str,
@@ -69,7 +69,7 @@ impl Translater for Youdao {
 
         Ok(tranresult)
     }
-    async fn dictionary(
+    async fn dic(
         &mut self,
         word: &String,
         from: &'static str,
@@ -97,7 +97,7 @@ fn test_translate() {
     );
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(youdao.dictionary(&"fanbook".to_string(), "en", "zh-CHS"));
+    let result = rt.block_on(youdao.dic(&"fanbook".to_string(), "en", "zh-CHS"));
 
     if let Ok(text) = result {
         println!("{:?}", text.pretty());

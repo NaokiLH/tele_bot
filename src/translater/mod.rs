@@ -6,13 +6,13 @@ pub mod youdao_api;
 
 #[async_trait]
 pub trait Translater {
-    async fn translate(
+    async fn trans(
         &mut self,
         text: &String,
         from: &'static str,
         to: &'static str,
     ) -> Result<Tranresult, Box<dyn Error + Send + Sync>>;
-    async fn dictionary(
+    async fn dic(
         &mut self,
         text: &String,
         from: &'static str,
@@ -40,7 +40,10 @@ pub struct Web {
 impl Tranresult {
     pub fn pretty(&self) -> String {
         let result = format!(
-            "{:?}\n\n直译:{:?}\n 发音:{:?}\n词典:{:?}\n",
+            "{:?}\n\n\
+            直译:{:?}\n\
+            发音:{:?}\n\
+            词典:{:?}\n",
             self.query, self.translation, self.basic.phonetic, self.basic.explains
         );
         result

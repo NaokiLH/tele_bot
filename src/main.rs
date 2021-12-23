@@ -1,6 +1,7 @@
 use dashmap::DashMap;
 use std::error::Error;
 use std::sync::Arc;
+use teloxide::payloads::AnswerCallbackQuerySetters;
 use teloxide::prelude::*;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, InlineQueryResult,
@@ -12,14 +13,17 @@ use translater::translater::youdao_api::Youdao;
 use translater::translater::Translater;
 const APPID: &str = "1758905c74df1d80";
 const APPKEY: &str = "zN317py0Xo9GuFAAh8t8IrkfTUGB5zml";
+const TELEGRAM_TOKEN: &str = "5049537837:AAHjmZovmdP6Ni8yWdfqJ3cbcd9jTNkG4Ek";
 
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
-    Help,
-    List,
     Add(String),
     Remove(String),
+    Trans(String),
+    Start,
+    Help,
+    List,
     Clear,
     Exam,
 }
@@ -28,6 +32,7 @@ enum Command {
 async fn main() {
     run().await;
 }
+
 //CommandHandler
 async fn cmd_answer(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
@@ -38,14 +43,18 @@ async fn cmd_answer(
         None => Command::Help,
     };
     match command {
+        Command::Start => {
+            unimplemented!()
+        }
         Command::Help => {
             let mes = String::from(
                 "These commands are supported:\n\
-                 /list - list all words\n\
-                 /add <word> - add word\n\
-                 /remove <word> - remove word\n\
-                 /clear - clear all words
-                 /exam - exam all words",
+                /list - list all words\n\
+                /add <word> - add word\n\
+                /remove <word> - remove word\n\
+                /clear - clear all words\n\
+                /exam - exam all words\n\
+                /trans - traslate words\n",
             );
             cx.answer(mes).send().await?;
         }
@@ -65,18 +74,42 @@ async fn cmd_answer(
             words.clear();
             cx.answer("All words are removed").send().await?;
         }
+        Command::Trans(word) => {
+            let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
+            let result = translater.dic(&word, "en", "zh-CHS").await?;
+            cx.requester
+                .send_message(cx.update.chat_id(), result.pretty())
+                .reply_markup(InlineKeyboardMarkup {
+                    inline_keyboard: vec![vec![
+                        InlineKeyboardButton::new(
+                            "Add",
+                            InlineKeyboardButtonKind::CallbackData(format!("add {}", word)),
+                        ),
+                        InlineKeyboardButton::new(
+                            "Search",
+                            InlineKeyboardButtonKind::Url(
+                                String::from("https://www.google.com/search?q=") + &word,
+                            ),
+                        ),
+                    ]],
+                })
+                .send()
+                .await?;
+        }
         Command::Add(word) => {
-            if words.contains_key(&word) {
-                cx.answer("Word is already in list").send().await?;
-            } else {
-                let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
-                if let Ok(v) = translater.dictionary(&word, "en", "zh-CHS").await {
-                    words.insert(word, v.pretty());
-                    cx.answer("Word is added").send().await?;
-                } else {
-                    cx.answer("Word added fail").send().await?;
+            let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
+            let msg = match (
+                words.contains_key(&word),
+                translater.dic(&word, "en", "zh-CHS").await,
+            ) {
+                (false, Ok(result)) => {
+                    words.insert(word.clone(), result.pretty());
+                    format!("Word {} is added", word)
                 }
-            }
+                (false, Err(_)) => format!("Word {} add failed", word),
+                (true, _) => format!("Word {} is already added", word),
+            };
+            cx.answer(msg).send().await?;
         }
         Command::Remove(word) => {
             if words.remove(&word.to_lowercase()).is_some() {
@@ -105,70 +138,41 @@ async fn cmd_answer(
     }
     Ok(())
 }
+
 //InlineQueryHandler
 async fn inq_anwser(
     cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // if empty, return today's list of words
-    if cx.update.query.is_empty() {
-        cx.requester
-            .answer_inline_query(
-                cx.update.id,
-                vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
-                    "1",
-                    format!("list your today word"),
-                    InputMessageContent::Text(InputMessageContentText::new("/list".to_string())),
-                ))],
-            )
-            .await?;
-        return Ok(());
-    }
-    let word = cx.update.query.to_lowercase();
-    let word_clone = word.clone();
     let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
-    match translater.dictionary(&word, "en", "zh-CHS").await {
-        Ok(v) => {
-            let result = vec![InlineQueryResult::Article(
-                InlineQueryResultArticle::new(
-                    "1",
-                    format!("{} - {}", word_clone, v.translation()),
-                    InputMessageContent::Text(InputMessageContentText::new(v.pretty())),
-                )
-                .reply_markup(InlineKeyboardMarkup {
-                    inline_keyboard: vec![vec![
-                        InlineKeyboardButton::new(
-                            "add",
-                            InlineKeyboardButtonKind::CallbackData(format!("add {}", word_clone)),
-                        ),
-                        InlineKeyboardButton::new(
-                            "search",
-                            InlineKeyboardButtonKind::Url(format!(
-                                "https://www.google.com/search?q={}",
-                                word_clone.clone()
-                            )),
-                        ),
-                    ]],
-                }),
-            )];
-
-            cx.requester
-                .answer_inline_query(cx.update.id, result)
-                .await?;
-        }
-        _ => {
-            let result = vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
-                "1",
-                "No result found",
-                InputMessageContent::Text(InputMessageContentText::new("No word has been found")),
-            ))];
-            cx.requester
-                .answer_inline_query(cx.update.id, result)
-                .await?;
-        }
+    let query = cx.update.query.to_lowercase();
+    let result = match (
+        query.is_empty(),
+        translater.dic(&query, "en", "zh-CHS").await,
+    ) {
+        (true, _) => vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
+            "1",
+            format!("list your today word"),
+            InputMessageContent::Text(InputMessageContentText::new("/list".to_string())),
+        ))],
+        (false, Ok(trans_word)) => vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
+            "2",
+            format!("{} - {}", &query, trans_word.translation()),
+            InputMessageContent::Text(InputMessageContentText::new(format!("/trans {}", query))),
+        ))],
+        (false, Err(_)) => vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
+            "3",
+            "No result found",
+            InputMessageContent::Text(InputMessageContentText::new("No word has been found")),
+        ))],
     };
+    cx.requester
+        .answer_inline_query(cx.update.id, result)
+        .await?;
 
     Ok(())
 }
+
 //CallbackQueryHandler
 async fn cbq_answer(
     cx: UpdateWithCx<AutoSend<Bot>, CallbackQuery>,
@@ -177,34 +181,27 @@ async fn cbq_answer(
     let UpdateWithCx {
         requester, update, ..
     } = cx;
-
     if let Some(text) = update.data {
-        match text.as_str() {
-            "delete" => {}
-            _ => {
-                log::info!("{}", text);
-                if words.contains_key(&text) {
-                    log::info!("contained");
-                    requester
-                        .answer_callback_query(update.id)
-                        .text("word has already in list")
-                        .await?;
-                } else {
-                    let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
-                    words.insert(
-                        text.clone(),
-                        translater
-                            .dictionary(&text, "en", "zh-CHS")
-                            .await?
-                            .translation(),
-                    );
-                    requester
-                        .answer_callback_query(update.id)
-                        .text("word added successfully")
-                        .await?;
-                }
+        let args = text.split_whitespace().collect::<Vec<&str>>();
+        match args[0] {
+            "add" => {
+                let word = args[1].to_lowercase();
+                let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
+                let msg = match (
+                    words.contains_key(&word),
+                    translater.dic(&word, "en", "zh-CHS").await,
+                ) {
+                    (false, Ok(result)) => {
+                        words.insert(word.clone(), result.pretty());
+                        format!("Word {} is added", word)
+                    }
+                    (false, Err(_)) => format!("Word {} add failed", word),
+                    (true, _) => format!("Word {} is already added", word),
+                };
+                requester.answer_callback_query(update.id).text(msg).await?;
             }
-        }
+            _ => {}
+        };
     }
 
     Ok(())
@@ -213,6 +210,7 @@ async fn cbq_answer(
 async fn run() {
     teloxide::enable_logging!();
     log::info!("Bot started");
+    std::env::set_var("TELOXIDE_TOKEN", TELEGRAM_TOKEN);
     let bot = Bot::from_env().auto_send();
     let words = Arc::new(DashMap::new());
     let words1 = words.clone();
