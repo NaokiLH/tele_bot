@@ -1,16 +1,16 @@
 use dashmap::DashMap;
 use std::error::Error;
 use std::sync::Arc;
-use teloxide::payloads::AnswerCallbackQuerySetters;
+use teloxide::payloads::{AnswerCallbackQuerySetters, EditMessageTextSetters, SendMessageSetters};
 use teloxide::prelude::*;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, InlineQueryResult,
-    InlineQueryResultArticle, InputMessageContent, InputMessageContentText,
+    InlineQueryResultArticle, InputMessageContent, InputMessageContentText, ParseMode,
 };
 use teloxide::utils::command::BotCommand;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use translater::translater::youdao_api::Youdao;
-use translater::translater::Translater;
+use translater::translater::{Tranresult, Translater};
 const APPID: &str = "1758905c74df1d80";
 const APPKEY: &str = "zN317py0Xo9GuFAAh8t8IrkfTUGB5zml";
 const TELEGRAM_TOKEN: &str = "5049537837:AAHjmZovmdP6Ni8yWdfqJ3cbcd9jTNkG4Ek";
@@ -24,11 +24,10 @@ const TELEGRAM_TOKEN: &str = "5049537837:AAHjmZovmdP6Ni8yWdfqJ3cbcd9jTNkG4Ek";
 enum Command {
     Add(String),
     Remove(String),
-    Trans(String),
     Start,
     Help,
-    List,
-    Clear,
+    List(String),
+    ClearWords,
     Exam,
 }
 
@@ -40,7 +39,7 @@ async fn main() {
 //CommandHandler
 async fn cmd_answer(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
-    words: Arc<DashMap<String, String>>,
+    words: Arc<DashMap<String, Tranresult>>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let command = match cx.update.text() {
         Some(text) => Command::parse(text, "npx")?,
@@ -48,58 +47,72 @@ async fn cmd_answer(
     };
 
     match command {
-        Command::Start => {
-            unimplemented!()
-        }
-        Command::Help => {
+        Command::Help | Command::Start => {
             let mes = String::from(
                 "These commands are supported:\n\
                 /list - list all words\n\
                 /add <word> - add word\n\
                 /remove <word> - remove word\n\
-                /clear - clear all words\n\
-                /exam - exam all words\n\
-                /trans - traslate words\n",
+                /clearwords - clear all words\n\
+                /exam - exam all words\n",
             );
             cx.answer(mes).send().await?;
         }
-        Command::List => {
+        Command::List(mode) => {
             if words.is_empty() {
                 cx.answer("No words").send().await?;
             } else {
-                let mes = words
-                    .iter()
-                    .map(|ref_mut| format!("{} - {}", ref_mut.key(), ref_mut.value()))
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                cx.answer(mes).send().await?;
+                match mode.as_str() {
+                    "-e" => {
+                        let num = words.len();
+                        let elist = words
+                            .iter()
+                            .map(|ref_mut| {
+                                format!("{} - {}", ref_mut.key(), ref_mut.value().translation())
+                            })
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        cx.answer(format!("Your list hava {} words\n{}", num, elist))
+                            .await?;
+                    }
+                    "-c" => {
+                        let msg = words
+                            .iter()
+                            .map(|ref_mut| ref_mut.value().markdown())
+                            .collect::<Vec<String>>();
+
+                        cx.reply_to(msg[0].as_str())
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(InlineKeyboardMarkup {
+                                inline_keyboard: vec![vec![
+                                    InlineKeyboardButton::new(
+                                        "Last",
+                                        InlineKeyboardButtonKind::CallbackData(format!(
+                                            "last {}",
+                                            -1
+                                        )),
+                                    ),
+                                    InlineKeyboardButton::new(
+                                        "Next",
+                                        InlineKeyboardButtonKind::CallbackData(format!(
+                                            "next {}",
+                                            1
+                                        )),
+                                    ),
+                                ]],
+                            })
+                            .send()
+                            .await?;
+                    }
+                    _ => {
+                        cx.answer("Wrong mode").send().await?;
+                    }
+                }
             }
         }
-        Command::Clear => {
+        Command::ClearWords => {
             words.clear();
             cx.answer("All words are removed").send().await?;
-        }
-        Command::Trans(word) => {
-            let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
-            let result = translater.dic(&word, "en", "zh-CHS").await?;
-            cx.requester
-                .send_message(cx.update.chat_id(), result.pretty())
-                .reply_markup(InlineKeyboardMarkup {
-                    inline_keyboard: vec![vec![
-                        InlineKeyboardButton::new(
-                            "Add",
-                            InlineKeyboardButtonKind::CallbackData(format!("add {}", word)),
-                        ),
-                        InlineKeyboardButton::new(
-                            "Search",
-                            InlineKeyboardButtonKind::Url(
-                                String::from("https://www.google.com/search?q=") + &word,
-                            ),
-                        ),
-                    ]],
-                })
-                .send()
-                .await?;
         }
         Command::Add(word) => {
             let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
@@ -108,7 +121,7 @@ async fn cmd_answer(
                 translater.dic(&word, "en", "zh-CHS").await,
             ) {
                 (false, Ok(result)) => {
-                    words.insert(word.clone(), result.pretty());
+                    words.insert(word.clone(), result);
                     format!("Word {} is added", word)
                 }
                 (false, Err(_)) => format!("Word {} add failed", word),
@@ -148,9 +161,9 @@ async fn cmd_answer(
 async fn inq_anwser(
     cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // if empty, return today's list of words
     let mut translater = Youdao::new(APPID.to_string(), APPKEY.to_string());
     let query = cx.update.query.to_lowercase();
+    // match arms return inline query result
     let result = match (
         query.is_empty(),
         translater.dic(&query, "en", "zh-CHS").await,
@@ -160,11 +173,33 @@ async fn inq_anwser(
             format!("list your today word"),
             InputMessageContent::Text(InputMessageContentText::new("/list".to_string())),
         ))],
-        (false, Ok(trans_word)) => vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
-            "2",
-            format!("{} - {}", &query, trans_word.translation()),
-            InputMessageContent::Text(InputMessageContentText::new(format!("/trans {}", query))),
-        ))],
+        (false, Ok(trans_word)) => {
+            vec![InlineQueryResult::Article(
+                InlineQueryResultArticle::new(
+                    "2",
+                    format!("{}", trans_word.explains()),
+                    InputMessageContent::Text(
+                        InputMessageContentText::new(trans_word.markdown())
+                            .parse_mode(ParseMode::MarkdownV2),
+                    ),
+                )
+                .reply_markup(InlineKeyboardMarkup {
+                    inline_keyboard: vec![vec![
+                        InlineKeyboardButton::new(
+                            "Add",
+                            InlineKeyboardButtonKind::CallbackData(format!("add {}", query)),
+                        ),
+                        InlineKeyboardButton::new(
+                            "Search",
+                            InlineKeyboardButtonKind::Url(format!(
+                                "https://www.google.com/search?q={}",
+                                query
+                            )),
+                        ),
+                    ]],
+                }),
+            )]
+        }
         (false, Err(_)) => vec![InlineQueryResult::Article(InlineQueryResultArticle::new(
             "3",
             "No result found",
@@ -181,7 +216,7 @@ async fn inq_anwser(
 //CallbackQueryHandler
 async fn cbq_answer(
     cx: UpdateWithCx<AutoSend<Bot>, CallbackQuery>,
-    words: Arc<DashMap<String, String>>,
+    words: Arc<DashMap<String, Tranresult>>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let UpdateWithCx {
         requester, update, ..
@@ -197,13 +232,56 @@ async fn cbq_answer(
                     translater.dic(&word, "en", "zh-CHS").await,
                 ) {
                     (false, Ok(result)) => {
-                        words.insert(word.clone(), result.pretty());
+                        words.insert(word.clone(), result);
                         format!("Word {} is added", word)
                     }
                     (false, Err(_)) => format!("Word {} add failed", word),
                     (true, _) => format!("Word {} is already added", word),
                 };
                 requester.answer_callback_query(update.id).text(msg).await?;
+            }
+            "next" | "last" => {
+                let word_list = words
+                    .iter()
+                    .map(|ref_mut| ref_mut.value().markdown())
+                    .collect::<Vec<String>>();
+                match args[1].parse::<usize>() {
+                    Ok(index) if index < word_list.len() => {
+                        requester
+                            .edit_message_text(
+                                update.from.id,
+                                update.message.unwrap().id,
+                                word_list[index].clone(),
+                            )
+                            .parse_mode(ParseMode::MarkdownV2)
+                            .reply_markup(InlineKeyboardMarkup {
+                                inline_keyboard: vec![vec![
+                                    InlineKeyboardButton::new(
+                                        "Last",
+                                        InlineKeyboardButtonKind::CallbackData(format!(
+                                            "last {}",
+                                            index as i32 - 1
+                                        )),
+                                    ),
+                                    InlineKeyboardButton::new(
+                                        "Next",
+                                        InlineKeyboardButtonKind::CallbackData(format!(
+                                            "next {}",
+                                            index + 1
+                                        )),
+                                    ),
+                                ]],
+                            })
+                            .send()
+                            .await?;
+                    }
+                    _ => {
+                        requester
+                            .answer_callback_query(update.id)
+                            .text("this page does not exist")
+                            .await?;
+                    }
+                };
             }
             _ => {}
         };

@@ -39,22 +39,41 @@ pub struct Web {
 }
 impl Tranresult {
     pub fn pretty(&self) -> String {
-        let result = format!(
-            "{:?}\n\n\
-            直译:{:?}\n\
-            发音:{:?}\n\
-            词典:{:?}\n",
-            self.query, self.translation, self.basic.phonetic, self.basic.explains
-        );
-        result
+        String::new()
     }
     pub fn markdown(&self) -> String {
-        String::new()
+        let mut translation = String::new();
+        for v in self.translation.iter() {
+            translation.push_str(&format!("_{}_", v));
+        }
+        let mut explains = String::new();
+        for (i, v) in self.basic.explains.iter().enumerate() {
+            explains.push_str(&format!("\n*{}.* {}", i + 1, v));
+        }
+
+        let result = format!(
+            "🌟 __*{}*__ 🌟\n\n\
+            🥇 *直译：* {}\n\n\
+            🥈 *发音：* \\[{}\\]\n\n\
+            🥉 *词典：*——————————————————————————{}\n———————————————————————————————\n",
+            self.query, translation, self.basic.phonetic, explains
+        );
+
+        let result = result.replace('.', "\\.");
+        let result = result.replace('<', "\\<");
+        let result = result.replace('>', "\\>");
+        let result = result.replace('(', "\\(");
+        let result = result.replace(')', "\\)");
+
+        result
     }
     pub fn html(&self) -> String {
         String::new()
     }
     pub fn translation(&self) -> String {
         format!("{:?}", self.translation)
+    }
+    pub fn explains(&self) -> String {
+        format!("{}", self.basic.explains[0])
     }
 }

@@ -49,6 +49,7 @@ impl Youdao {
         self.body.insert("curtime".to_string(), curtime);
     }
 }
+
 #[async_trait]
 impl Translater for Youdao {
     async fn trans(
