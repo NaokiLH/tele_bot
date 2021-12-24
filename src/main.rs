@@ -50,7 +50,7 @@ async fn cmd_answer(
         Command::Help | Command::Start => {
             let mes = String::from(
                 "These commands are supported:\n\
-                /list - list all words\n\
+                /list -flag - list all words,flags: -e or -c\n\
                 /add <word> - add word\n\
                 /remove <word> - remove word\n\
                 /clearwords - clear all words\n\
