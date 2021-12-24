@@ -54,7 +54,9 @@ async fn cmd_answer(
                 /add <word> - add word\n\
                 /remove <word> - remove word\n\
                 /clearwords - clear all words\n\
-                /exam - exam all words\n",
+                /exam - exam all words\n\
+                support inline query,\n\
+                you can use inline mode to translate words\n",
             );
             cx.answer(mes).send().await?;
         }
