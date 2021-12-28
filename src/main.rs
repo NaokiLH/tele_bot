@@ -45,7 +45,6 @@ async fn cmd_answer(
         Some(text) => Command::parse(text, "npx")?,
         None => Command::Help,
     };
-
     match command {
         Command::Help | Command::Start => {
             let mes = String::from(
@@ -139,20 +138,13 @@ async fn cmd_answer(
             }
         }
         Command::Exam => {
-            cx.reply_to("Today's word exam")
-                .reply_markup(InlineKeyboardMarkup {
-                    inline_keyboard: vec![vec![
-                        InlineKeyboardButton::new(
-                            "Start",
-                            InlineKeyboardButtonKind::CallbackData(String::from("start")),
-                        ),
-                        InlineKeyboardButton::new(
-                            "Stop",
-                            InlineKeyboardButtonKind::CallbackData(String::from("stop")),
-                        ),
-                    ]],
-                })
-                .send()
+            cx.requester
+                .send_poll(
+                    cx.update.chat_id(),
+                    "test question",
+                    vec!["1".to_string(), "2".to_string(), "3".to_string()],
+                    teloxide::types::PollType::Regular,
+                )
                 .await?;
         }
     }
