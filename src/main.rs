@@ -215,6 +215,7 @@ async fn cbq_answer(
     let UpdateWithCx {
         requester, update, ..
     } = cx;
+    let update_id = update.id.clone();
     if let Some(text) = update.data {
         let args = text.split_whitespace().collect::<Vec<&str>>();
         match args[0] {
@@ -232,7 +233,20 @@ async fn cbq_answer(
                     (false, Err(_)) => format!("Word {} add failed", word),
                     (true, _) => format!("Word {} is already added", word),
                 };
+
+                // need to test
                 requester.answer_callback_query(update.id).text(msg).await?;
+                match (update.inline_message_id, update.message) {
+                    (Some(inline_message_id), _) => {
+                        requester
+                            .edit_message_text_inline(inline_message_id, "")
+                            .await?;
+                    }
+                    (_, Some(message)) => {
+                        requester.delete_message(update_id, message.id).await?;
+                    }
+                    _ => (),
+                }
             }
             "next" | "last" => {
                 let word_list = words
